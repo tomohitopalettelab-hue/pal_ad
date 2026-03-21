@@ -289,7 +289,7 @@ export default function MainPage() {
   // ===== ダッシュボード =====
   if (view === 'dashboard') {
     return (
-      <main className="min-h-screen" style={{ backgroundColor: BG }}>
+      <main className="min-h-screen overflow-y-auto" style={{ backgroundColor: BG }}>
         <div className="max-w-4xl mx-auto p-4">
           {/* ヘッダー */}
           <div className="flex items-center justify-between mb-6">
@@ -383,8 +383,8 @@ export default function MainPage() {
   // ===== 3ステップウィザード =====
   if (view === 'wizard') {
     return (
-      <main className="min-h-screen" style={{ backgroundColor: BG }}>
-        <div className="max-w-2xl mx-auto p-4">
+      <main className="min-h-screen overflow-y-auto" style={{ backgroundColor: BG }}>
+        <div className="w-full max-w-2xl mx-auto p-4">
           {/* ヘッダー */}
           <div className="flex items-center justify-between mb-6">
             <button onClick={() => setView('dashboard')} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">
@@ -642,7 +642,7 @@ export default function MainPage() {
   if (view === 'preview' && selectedCampaign) {
     const c = selectedCampaign;
     return (
-      <main className="min-h-screen" style={{ backgroundColor: BG }}>
+      <main className="min-h-screen overflow-y-auto" style={{ backgroundColor: BG }}>
         <div className="max-w-4xl mx-auto p-4">
           <div className="flex items-center justify-between mb-6">
             <button onClick={() => setView('dashboard')} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">

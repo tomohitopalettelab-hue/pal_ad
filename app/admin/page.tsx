@@ -107,7 +107,7 @@ export default function AdminPage() {
   );
 
   return (
-    <main className="min-h-screen" style={{ backgroundColor: BG }}>
+    <main className="min-h-screen overflow-y-auto" style={{ backgroundColor: BG }}>
       <div className="max-w-6xl mx-auto p-4">
         {/* ヘッダー */}
         <div className="flex items-center justify-between mb-6">
