@@ -109,6 +109,7 @@ export async function POST(req: Request) {
     const allocation = calculateAllocation(channels, budget);
     const copies = await generateAICopies(goal, channels);
     const destination = body.destination || { type: 'url', url: '', label: '' };
+    const targeting = body.targeting || undefined;
 
     // ウォレットから予算を引き落とし
     const goalLabels: Record<string, string> = { visit: '来店促進', friends: '友だち獲得', recruit: 'スタッフ募集' };
@@ -130,6 +131,7 @@ export async function POST(req: Request) {
       mediaUrls: [],
       videoJobId: null,
       destination,
+      targeting,
       performance: [],
     });
 

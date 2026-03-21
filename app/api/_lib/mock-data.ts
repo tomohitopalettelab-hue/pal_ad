@@ -33,6 +33,14 @@ export type CampaignDestination = {
   label: string;
 };
 
+export type CampaignTargeting = {
+  address: string;
+  lat?: number;
+  lng?: number;
+  radiusKm: number;
+  persona?: string[];
+};
+
 export type Campaign = {
   id: string;
   paletteId: string;
@@ -46,6 +54,7 @@ export type Campaign = {
   mediaUrls: string[];
   videoJobId: string | null;
   destination: CampaignDestination;
+  targeting?: CampaignTargeting;
   performance: DailyPerformance[];
   createdAt: string;
   updatedAt: string;
@@ -329,6 +338,7 @@ export const MOCK_CAMPAIGNS: Campaign[] = [
     mediaUrls: [],
     videoJobId: null,
     destination: { type: 'url', url: 'https://example.com/lp/visit', label: '来店キャンペーンLP' },
+    targeting: { address: '兵庫県尼崎市小中島3丁目', lat: 34.7325, lng: 135.4165, radiusKm: 5, persona: ['housewife', 'salaryman'] },
     performance: generateMockPerformance(14),
     createdAt: '2026-03-01T00:00:00Z',
     updatedAt: '2026-03-20T10:00:00Z',

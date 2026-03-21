@@ -23,11 +23,14 @@ type DailyPerformance = { date: string; impressions: number; clicks: number; con
 type DestinationType = 'url' | 'pal_studio' | 'line' | 'phone' | 'map';
 type CampaignDestination = { type: DestinationType; url?: string; label: string };
 
+type CampaignTargeting = { address: string; lat?: number; lng?: number; radiusKm: number; persona?: string[] };
+
 type Campaign = {
   id: string; paletteId: string; goal: CampaignGoal; channels: ChannelId[];
   budget: number; periodDays: number; allocation: ChannelAllocation[];
   status: CampaignStatus; copies: ChannelCopy[]; mediaUrls: string[];
   videoJobId: string | null; destination: CampaignDestination;
+  targeting?: CampaignTargeting;
   performance: DailyPerformance[];
   createdAt: string; updatedAt: string;
 };
@@ -139,6 +142,11 @@ export default function MainPage() {
   const [destLabel, setDestLabel] = useState('');
   const [channelFormats, setChannelFormats] = useState<Record<string, string[]>>({});
 
+  // ターゲティング
+  const [targetAddress, setTargetAddress] = useState('');
+  const [targetRadius, setTargetRadius] = useState(5);
+  const [targetPersonas, setTargetPersonas] = useState<string[]>([]);
+
   // ログイン
   const [loginId, setLoginId] = useState('');
   const [loginPw, setLoginPw] = useState('');
@@ -200,6 +208,9 @@ export default function MainPage() {
     setDestUrl('');
     setDestLabel('');
     setChannelFormats({});
+    setTargetAddress('');
+    setTargetRadius(5);
+    setTargetPersonas([]);
     setView('wizard');
   };
 
@@ -225,6 +236,7 @@ export default function MainPage() {
         body: JSON.stringify({
           goal: selectedGoal, channels: selectedChannels, budget, periodDays,
           destination: { type: destType, url: destUrl || undefined, label: destLabel || DEST_PRESETS.find(d => d.type === destType)?.label || '' },
+          targeting: targetAddress ? { address: targetAddress, radiusKm: targetRadius, persona: targetPersonas.length ? targetPersonas : undefined } : undefined,
           channelFormats,
         }),
       });
@@ -654,6 +666,76 @@ export default function MainPage() {
                 )}
               </div>
 
+              {/* サークルターゲティング */}
+              <div className="bg-white rounded-xl p-5 border border-slate-200 mb-6">
+                <p className="text-[11px] font-bold text-slate-500 mb-3">
+                  <MapPin size={12} className="inline mr-1" style={{ color: ACCENT }} />
+                  配信エリア（サークルターゲティング）
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1">店舗住所</label>
+                    <input value={targetAddress} onChange={e => setTargetAddress(e.target.value)}
+                      placeholder="例：東京都渋谷区神宮前1-1-1"
+                      className="w-full p-2.5 border border-slate-300 rounded-lg text-sm outline-none"
+                      onFocus={e => e.target.style.boxShadow = `0 0 0 2px ${ACCENT}40`}
+                      onBlur={e => e.target.style.boxShadow = ''} />
+                  </div>
+
+                  {/* 地図表示 */}
+                  {targetAddress && (
+                    <div className="rounded-lg overflow-hidden border border-slate-200">
+                      <iframe
+                        width="100%" height="200" style={{ border: 0 }}
+                        loading="lazy" referrerPolicy="no-referrer-when-downgrade"
+                        src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''}&q=${encodeURIComponent(targetAddress)}&zoom=13`}
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1">配信半径</label>
+                    <div className="flex items-center gap-3">
+                      <input type="range" min={1} max={30} step={1} value={targetRadius}
+                        onChange={e => setTargetRadius(Number(e.target.value))}
+                        className="flex-1 accent-[#F39800]" />
+                      <span className="text-sm font-black text-slate-800 w-16 text-right">{targetRadius}km</span>
+                    </div>
+                    <div className="flex justify-between text-[9px] text-slate-400 mt-0.5">
+                      <span>1km</span><span>15km</span><span>30km</span>
+                    </div>
+                  </div>
+
+                  {/* ペルソナ選択 */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-2">ターゲットペルソナ</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { id: 'housewife', label: '主婦層', age: '30-50' },
+                        { id: 'salaryman', label: 'サラリーマン', age: '25-55' },
+                        { id: 'genz', label: 'Z世代', age: '18-27' },
+                        { id: 'jobseeker', label: '求職者', age: '18-45' },
+                      ].map(p => {
+                        const isOn = targetPersonas.includes(p.id);
+                        return (
+                          <button key={p.id}
+                            onClick={() => setTargetPersonas(prev =>
+                              isOn ? prev.filter(x => x !== p.id) : [...prev, p.id]
+                            )}
+                            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
+                              isOn ? 'text-white border-transparent' : 'text-slate-500 border-slate-200 hover:border-slate-300'
+                            }`}
+                            style={isOn ? { backgroundColor: ACCENT } : {}}>
+                            {p.label}
+                            <span className="text-[9px] ml-1 opacity-70">{p.age}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex gap-3">
                 <button onClick={() => setWizardStep(2)}
                   className="flex-1 py-3 rounded-xl border border-slate-300 text-sm font-bold text-slate-600 hover:bg-slate-50">
@@ -840,6 +922,29 @@ export default function MainPage() {
                   )}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ターゲティング */}
+          {c.targeting && (
+            <div className="bg-white rounded-xl p-5 border border-slate-200 mb-4">
+              <h3 className="text-xs font-bold text-slate-600 mb-2">
+                <MapPin size={12} className="inline mr-1" />配信エリア
+              </h3>
+              <p className="text-xs text-slate-800 font-bold">{c.targeting.address}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">半径 {c.targeting.radiusKm}km</p>
+              {c.targeting.persona && c.targeting.persona.length > 0 && (
+                <div className="flex gap-1 mt-2">
+                  {c.targeting.persona.map(p => {
+                    const labels: Record<string, string> = { housewife: '主婦層', salaryman: 'サラリーマン', genz: 'Z世代', jobseeker: '求職者' };
+                    return (
+                      <span key={p} className="text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ backgroundColor: `${ACCENT}15`, color: ACCENT }}>
+                        {labels[p] || p}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
