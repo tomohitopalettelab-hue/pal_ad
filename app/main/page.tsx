@@ -120,6 +120,9 @@ const STATUS_MAP: Record<CampaignStatus, { label: string; color: string; bg: str
 };
 
 const formatYen = (n: number) => `¥${n.toLocaleString()}`;
+const formatW = (n: number) => `${n.toLocaleString()}W`;
+const walletToYen = (w: number) => Math.round(w * 1.2);
+const yenToWallet = (yen: number) => Math.round(yen / 1.2);
 const formatDate = (s: string) => { try { return new Date(s).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' }); } catch { return s; } };
 
 // ===== メインコンポーネント =====
@@ -135,7 +138,7 @@ export default function MainPage() {
   const [wizardStep, setWizardStep] = useState<WizardStep>(1);
   const [selectedGoal, setSelectedGoal] = useState<CampaignGoal | null>(null);
   const [selectedChannels, setSelectedChannels] = useState<ChannelId[]>([]);
-  const [budget, setBudget] = useState(50000);
+  const [budget, setBudget] = useState(10000);
   const [periodDays, setPeriodDays] = useState(30);
   const [destType, setDestType] = useState<DestinationType>('url');
   const [destUrl, setDestUrl] = useState('');
@@ -202,7 +205,7 @@ export default function MainPage() {
     setWizardStep(1);
     setSelectedGoal(null);
     setSelectedChannels([]);
-    setBudget(50000);
+    setBudget(10000);
     setPeriodDays(30);
     setDestType('url');
     setDestUrl('');
@@ -218,16 +221,15 @@ export default function MainPage() {
     setSelectedChannels(prev => prev.includes(ch) ? prev.filter(c => c !== ch) : [...prev, ch]);
   };
 
-  const adSpend = useMemo(() => Math.round(budget * 0.8), [budget]);
   const allocation = useMemo(() => {
     if (!selectedChannels.length) return [];
     const base = Math.floor(100 / selectedChannels.length);
     const rem = 100 - base * selectedChannels.length;
     return selectedChannels.map((ch, i) => {
       const pct = base + (i < rem ? 1 : 0);
-      return { channelId: ch, budget: Math.round(adSpend * pct / 100), percentage: pct };
+      return { channelId: ch, budget: Math.round(budget * pct / 100), percentage: pct };
     });
-  }, [selectedChannels, adSpend]);
+  }, [selectedChannels, budget]);
 
   const handleCreateCampaign = useCallback(async () => {
     if (!selectedGoal || !selectedChannels.length) return;
@@ -336,21 +338,21 @@ export default function MainPage() {
             <div className="flex items-center gap-2">
               <Wallet size={18} style={{ color: ACCENT }} />
               <div>
-                <p className="text-[10px] text-slate-400 font-bold">Paletteウォレット</p>
-                <p className="text-lg font-black text-slate-800">{formatYen(walletBalance)}</p>
+                <p className="text-[10px] text-slate-400 font-bold">Paletteウォレット残高</p>
+                <p className="text-lg font-black text-slate-800">{formatW(walletBalance)}</p>
               </div>
             </div>
             <button onClick={async () => {
               const res = await fetch('/api/wallet', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'charge', amount: 50000 }),
+                body: JSON.stringify({ action: 'charge', amount: 10000 }),
               });
               const data = await res.json();
               if (data?.balance !== undefined) setWalletBalance(data.balance);
             }}
               className="px-3 py-1.5 rounded-lg text-xs font-bold text-white"
               style={{ backgroundColor: ACCENT }}>
-              + チャージ
+              ¥12,000で10,000Wチャージ
             </button>
           </div>
 
@@ -402,7 +404,7 @@ export default function MainPage() {
                         </div>
                         <div>
                           <p className="text-sm font-bold text-slate-800">{goalInfo.label}</p>
-                          <p className="text-[10px] text-slate-400">{formatDate(c.createdAt)} ・ {c.periodDays}日間 ・ {formatYen(c.budget)}</p>
+                          <p className="text-[10px] text-slate-400">{formatDate(c.createdAt)} ・ {c.periodDays}日間 ・ {formatW(c.budget)}</p>
                         </div>
                       </div>
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${st.bg} ${st.color}`}>
@@ -579,29 +581,13 @@ export default function MainPage() {
               <p className="text-xs text-slate-400 mb-6">媒体への配分は自動で最適化されます</p>
 
               <div className="bg-white rounded-xl p-5 border border-slate-200 mb-4">
-                <label className="block text-[11px] font-bold text-slate-500 mb-2">総予算</label>
-                <p className="text-2xl font-black text-slate-800 mb-2">{formatYen(budget)}</p>
-                <input type="range" min={10000} max={1000000} step={10000} value={budget}
+                <label className="block text-[11px] font-bold text-slate-500 mb-2">広告予算（ウォレット）</label>
+                <p className="text-2xl font-black text-slate-800 mb-2">{formatW(budget)}</p>
+                <input type="range" min={5000} max={500000} step={5000} value={budget}
                   onChange={e => setBudget(Number(e.target.value))}
                   className="w-full accent-[#F39800]" />
                 <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-                  <span>¥10,000</span><span>¥1,000,000</span>
-                </div>
-
-                {/* 料金内訳 */}
-                <div className="mt-4 pt-3 border-t border-slate-100">
-                  <div className="flex justify-between text-xs text-slate-500 mb-1">
-                    <span>広告運用費（媒体実費）</span>
-                    <span>{formatYen(Math.round(budget * 0.8))}</span>
-                  </div>
-                  <div className="flex justify-between text-xs mb-1" style={{ color: ACCENT }}>
-                    <span className="font-bold">運用手数料（20%）</span>
-                    <span className="font-bold">{formatYen(Math.round(budget * 0.2))}</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-black text-slate-800 mt-2 pt-2 border-t border-slate-100">
-                    <span>お支払い総額</span>
-                    <span>{formatYen(budget)}</span>
-                  </div>
+                  <span>5,000W</span><span>500,000W</span>
                 </div>
               </div>
 
@@ -623,13 +609,13 @@ export default function MainPage() {
               <div className="bg-white rounded-xl p-5 border border-slate-200 mb-6">
                 <p className="text-[11px] font-bold text-slate-500 mb-3">
                   <Sparkles size={12} className="inline mr-1" style={{ color: ACCENT }} />
-                  スマート配分プレビュー（広告実費 {formatYen(adSpend)}）
+                  スマート配分プレビュー（{formatW(budget)}）
                 </p>
                 {allocation.map(a => (
                   <div key={a.channelId} className="flex items-center gap-2 mb-2">
                     <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: CHANNEL_MAP[a.channelId].color }} />
                     <span className="text-xs text-slate-600 flex-1">{CHANNEL_MAP[a.channelId].name}</span>
-                    <span className="text-xs font-bold text-slate-800">{formatYen(a.budget)}</span>
+                    <span className="text-xs font-bold text-slate-800">{formatW(a.budget)}</span>
                     <span className="text-[10px] text-slate-400 w-8 text-right">{a.percentage}%</span>
                   </div>
                 ))}
@@ -875,8 +861,8 @@ export default function MainPage() {
               ))}
             </div>
             <div className="flex items-center gap-4 text-xs text-slate-500">
-              <span><Wallet size={12} className="inline mr-1" />予算: {formatYen(c.budget)}</span>
-              <span>消化: {formatYen(totalSpend)}</span>
+              <span><Wallet size={12} className="inline mr-1" />予算: {formatW(c.budget)}</span>
+              <span>消化: {formatW(totalSpend)}</span>
             </div>
           </div>
 
@@ -972,7 +958,7 @@ export default function MainPage() {
               <div key={a.channelId} className="flex items-center gap-2 mb-2">
                 <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: CHANNEL_MAP[a.channelId].color }} />
                 <span className="text-xs text-slate-600 flex-1">{CHANNEL_MAP[a.channelId].name}</span>
-                <span className="text-xs font-bold text-slate-800">{formatYen(a.budget)}</span>
+                <span className="text-xs font-bold text-slate-800">{formatW(a.budget)}</span>
                 <span className="text-[10px] text-slate-400 w-8 text-right">{a.percentage}%</span>
               </div>
             ))}
