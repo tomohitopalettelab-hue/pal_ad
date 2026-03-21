@@ -272,12 +272,12 @@ export default function AdminPage() {
                       </h3>
                       <div className="space-y-2">
                         {([
-                          { key: 'googleConnected' as const, name: 'Google Ads', color: '#4285F4' },
-                          { key: 'metaConnected' as const, name: 'Meta (Instagram/FB)', color: '#E4405F' },
-                          { key: 'tiktokConnected' as const, name: 'TikTok Ads', color: '#000000' },
-                          { key: 'xConnected' as const, name: 'X Ads', color: '#1DA1F2' },
-                          { key: 'indeedConnected' as const, name: 'Indeed', color: '#2164F3' },
-                          { key: 'lineConnected' as const, name: 'LINE Ads', color: '#06C755' },
+                          { key: 'googleConnected' as const, name: 'Google Ads', color: '#4285F4', oauthPath: '/api/oauth/google' },
+                          { key: 'metaConnected' as const, name: 'Meta (Instagram/FB)', color: '#E4405F', oauthPath: '/api/oauth/instagram' },
+                          { key: 'tiktokConnected' as const, name: 'TikTok Ads', color: '#000000', oauthPath: '' },
+                          { key: 'xConnected' as const, name: 'X Ads', color: '#1DA1F2', oauthPath: '' },
+                          { key: 'indeedConnected' as const, name: 'Indeed', color: '#2164F3', oauthPath: '' },
+                          { key: 'lineConnected' as const, name: 'LINE Ads', color: '#06C755', oauthPath: '/api/oauth/line' },
                         ]).map(ch => {
                           const connected = settings[ch.key];
                           return (
@@ -290,10 +290,16 @@ export default function AdminPage() {
                                 <span className="flex items-center gap-1 text-[10px] text-green-600 font-bold">
                                   <Check size={10} />接続済み
                                 </span>
-                              ) : (
-                                <button className="text-[10px] px-2 py-0.5 rounded-lg font-bold text-slate-500 bg-slate-100 hover:bg-slate-200">
+                              ) : ch.oauthPath ? (
+                                <a href={`${ch.oauthPath}?paletteId=${encodeURIComponent(selectedCustomer.paletteId)}`}
+                                  className="text-[10px] px-2 py-0.5 rounded-lg font-bold text-white hover:opacity-80"
+                                  style={{ backgroundColor: ch.color }}>
                                   接続する
-                                </button>
+                                </a>
+                              ) : (
+                                <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold text-slate-400 bg-slate-50">
+                                  準備中
+                                </span>
                               )}
                             </div>
                           );

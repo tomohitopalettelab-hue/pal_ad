@@ -70,7 +70,7 @@ export const getSettingsByPaletteId = async (paletteId: string): Promise<AdSetti
   return settingsStore.get(paletteId) || null;
 };
 
-export const upsertSettings = async (paletteId: string, data: Partial<AdSettings>): Promise<AdSettings> => {
+export const upsertSettings = async (paletteId: string, data: Partial<AdSettings> & Record<string, unknown>): Promise<AdSettings> => {
   ensureInit();
   const existing = settingsStore.get(paletteId);
   const now = new Date().toISOString();
