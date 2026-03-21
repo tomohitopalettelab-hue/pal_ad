@@ -26,7 +26,7 @@ const normalize = (value: string | null | undefined) => String(value || '').trim
 
 const isPalAdPlanCode = (code: string): boolean => {
   const normalized = normalize(code).replace(/-/g, '_');
-  return normalized === 'pal_ad_lite' || normalized === 'pal_ad_standard';
+  return normalized === 'pal_ad' || normalized === 'pal_ad_lite' || normalized === 'pal_ad_standard';
 };
 
 const isPalAdStandardPlanCode = (code: string): boolean => {
