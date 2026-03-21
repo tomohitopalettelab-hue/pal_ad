@@ -81,9 +81,9 @@ export type ChannelInfo = {
 export const CHANNELS: ChannelInfo[] = [
   {
     id: 'google',
-    name: 'Googleマップ',
-    nameEn: 'Google Maps',
-    description: 'ピンの強調・検索上位',
+    name: 'Google広告',
+    nameEn: 'Google Ads',
+    description: 'マップ・検索・ディスプレイ',
     strength: '「今、近くで店を探している」層',
     format: 'マップピン・検索広告',
     color: '#4285F4',

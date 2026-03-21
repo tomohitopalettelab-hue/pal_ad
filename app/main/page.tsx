@@ -46,7 +46,7 @@ const DEST_PRESETS: { type: DestinationType; label: string; desc: string; icon: 
 
 // ===== チャネル情報 =====
 const CHANNEL_MAP: Record<ChannelId, { name: string; strength: string; color: string; format: string }> = {
-  google: { name: 'Googleマップ', strength: '今、近くで店を探している層', color: '#4285F4', format: 'マップピン・検索広告' },
+  google: { name: 'Google広告', strength: '今、近くで店を探している層', color: '#4285F4', format: 'マップ・検索・ディスプレイ' },
   instagram: { name: 'Instagram', strength: 'ビジュアルで欲しくなる層', color: '#E4405F', format: 'フィード・リール' },
   tiktok: { name: 'TikTok', strength: '流行に敏感な若年層・爆発力', color: '#000000', format: '縦型動画' },
   x: { name: 'X (Twitter)', strength: 'リアルタイム性・二次拡散', color: '#1DA1F2', format: 'プロモポスト' },
@@ -69,7 +69,7 @@ const CHANNEL_ICONS: Record<ChannelId, React.ReactNode> = {
 type ChannelFormatOption = { id: string; label: string; desc: string };
 const CHANNEL_FORMATS: Record<ChannelId, ChannelFormatOption[]> = {
   google: [
-    { id: 'map', label: 'Googleマップ広告', desc: 'マップ上のピン強調・ローカル検索上位' },
+    { id: 'map', label: 'マップ広告', desc: 'Googleマップ上のピン強調・ローカル検索上位' },
     { id: 'search', label: 'リスティング広告', desc: 'Google検索結果の上部にテキスト広告' },
     { id: 'display', label: 'ディスプレイ広告', desc: 'Webサイト・アプリにバナー表示' },
   ],

@@ -38,7 +38,7 @@ type CustomerAccount = {
 };
 
 const CHANNEL_MAP: Record<ChannelId, { name: string; color: string }> = {
-  google: { name: 'Googleマップ', color: '#4285F4' },
+  google: { name: 'Google広告', color: '#4285F4' },
   instagram: { name: 'Instagram', color: '#E4405F' },
   tiktok: { name: 'TikTok', color: '#000000' },
   x: { name: 'X', color: '#1DA1F2' },
