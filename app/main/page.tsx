@@ -126,6 +126,7 @@ export default function MainPage() {
   const [accountName, setAccountName] = useState('');
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
+  const [walletBalance, setWalletBalance] = useState(0);
 
   // ウィザード
   const [wizardStep, setWizardStep] = useState<WizardStep>(1);
@@ -151,6 +152,9 @@ export default function MainPage() {
         setPaletteId(data.paletteId || '');
         setCampaigns(data.campaigns || []);
         setView('dashboard');
+        fetch('/api/wallet').then(r => r.json()).then(w => {
+          if (w?.wallet) setWalletBalance(w.wallet.balance);
+        }).catch(() => {});
       }
     }).catch(() => {});
   }, []);
@@ -172,6 +176,9 @@ export default function MainPage() {
       const sessRes = await fetch('/api/main/session');
       const sessData = await sessRes.json();
       setCampaigns(sessData?.campaigns || []);
+      fetch('/api/wallet').then(r => r.json()).then(w => {
+        if (w?.wallet) setWalletBalance(w.wallet.balance);
+      }).catch(() => {});
       setView('dashboard');
     } catch { setLoginError('通信エラー'); } finally { setLoginLoading(false); }
   };
@@ -225,6 +232,10 @@ export default function MainPage() {
       if (data?.campaign) {
         setCampaigns(prev => [data.campaign, ...prev]);
         setSelectedCampaign(data.campaign);
+        // ウォレット残高を再取得
+        fetch('/api/wallet').then(r => r.json()).then(w => {
+          if (w?.wallet) setWalletBalance(w.wallet.balance);
+        }).catch(() => {});
         setView('preview');
       }
     } catch { /* エラーハンドリングは後で */ }
@@ -304,6 +315,29 @@ export default function MainPage() {
             </div>
             <button onClick={handleLogout} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">
               <LogOut size={14} /> ログアウト
+            </button>
+          </div>
+
+          {/* ウォレット残高 */}
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Wallet size={18} style={{ color: ACCENT }} />
+              <div>
+                <p className="text-[10px] text-slate-400 font-bold">Paletteウォレット</p>
+                <p className="text-lg font-black text-slate-800">{formatYen(walletBalance)}</p>
+              </div>
+            </div>
+            <button onClick={async () => {
+              const res = await fetch('/api/wallet', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'charge', amount: 50000 }),
+              });
+              const data = await res.json();
+              if (data?.balance !== undefined) setWalletBalance(data.balance);
+            }}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold text-white"
+              style={{ backgroundColor: ACCENT }}>
+              + チャージ
             </button>
           </div>
 

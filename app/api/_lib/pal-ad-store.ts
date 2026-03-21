@@ -1,9 +1,10 @@
-import { MOCK_CAMPAIGNS, MOCK_SETTINGS, type Campaign, type AdSettings } from './mock-data';
+import { MOCK_CAMPAIGNS, MOCK_SETTINGS, MOCK_TRANSACTIONS, type Campaign, type AdSettings, type WalletTransaction } from './mock-data';
 
 // Phase 1: モックデータを使用。Phase 2でVercel Postgres に移行。
 
 const campaignsStore = new Map<string, Campaign[]>();
 const settingsStore = new Map<string, AdSettings>();
+const transactionsStore = new Map<string, WalletTransaction[]>();
 
 // 初期化：モックデータをロード
 let initialized = false;
@@ -17,6 +18,11 @@ const ensureInit = () => {
   });
   MOCK_SETTINGS.forEach((s) => {
     settingsStore.set(s.paletteId, s);
+  });
+  MOCK_TRANSACTIONS.forEach((t) => {
+    const list = transactionsStore.get(t.paletteId) || [];
+    list.push(t);
+    transactionsStore.set(t.paletteId, list);
   });
 };
 
@@ -93,4 +99,66 @@ export const upsertSettings = async (paletteId: string, data: Partial<AdSettings
   return settings;
 };
 
-export type { Campaign, AdSettings };
+// ===== ウォレット機能 =====
+
+export const getTransactionsByPaletteId = async (paletteId: string, limit = 50): Promise<WalletTransaction[]> => {
+  ensureInit();
+  const all = transactionsStore.get(paletteId) || [];
+  return all
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, limit);
+};
+
+export const chargeWallet = async (paletteId: string, amount: number, description?: string): Promise<WalletTransaction> => {
+  ensureInit();
+  const settings = await getSettingsByPaletteId(paletteId) || await upsertSettings(paletteId, {});
+  const newBalance = settings.walletBalance + amount;
+  await upsertSettings(paletteId, { walletBalance: newBalance });
+
+  const tx: WalletTransaction = {
+    id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    paletteId,
+    type: 'charge',
+    amount,
+    balance: newBalance,
+    description: description || 'Paletteウォレット チャージ',
+    createdAt: new Date().toISOString(),
+  };
+  const list = transactionsStore.get(paletteId) || [];
+  list.push(tx);
+  transactionsStore.set(paletteId, list);
+  return tx;
+};
+
+export const spendFromWallet = async (
+  paletteId: string,
+  amount: number,
+  description: string,
+  campaignId?: string,
+): Promise<{ success: boolean; transaction?: WalletTransaction; error?: string }> => {
+  ensureInit();
+  const settings = await getSettingsByPaletteId(paletteId) || await upsertSettings(paletteId, {});
+  if (settings.walletBalance < amount) {
+    return { success: false, error: `残高不足です（残高: ¥${settings.walletBalance.toLocaleString()}, 必要額: ¥${amount.toLocaleString()}）` };
+  }
+
+  const newBalance = settings.walletBalance - amount;
+  await upsertSettings(paletteId, { walletBalance: newBalance });
+
+  const tx: WalletTransaction = {
+    id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    paletteId,
+    type: 'spend',
+    amount: -amount,
+    balance: newBalance,
+    description,
+    campaignId,
+    createdAt: new Date().toISOString(),
+  };
+  const list = transactionsStore.get(paletteId) || [];
+  list.push(tx);
+  transactionsStore.set(paletteId, list);
+  return { success: true, transaction: tx };
+};
+
+export type { Campaign, AdSettings, WalletTransaction };

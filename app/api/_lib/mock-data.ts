@@ -386,3 +386,25 @@ export const MOCK_SETTINGS: AdSettings[] = [
     updatedAt: '2026-03-20T00:00:00Z',
   },
 ];
+
+// ===== ウォレット取引 =====
+
+export type TransactionType = 'charge' | 'spend' | 'refund';
+
+export type WalletTransaction = {
+  id: string;
+  paletteId: string;
+  type: TransactionType;
+  amount: number;
+  balance: number;
+  description: string;
+  campaignId?: string;
+  createdAt: string;
+};
+
+export const MOCK_TRANSACTIONS: WalletTransaction[] = [
+  { id: 'tx_001', paletteId: 'PAL-0001', type: 'charge', amount: 300000, balance: 300000, description: 'Paletteウォレット チャージ', createdAt: '2026-01-15T10:00:00Z' },
+  { id: 'tx_002', paletteId: 'PAL-0001', type: 'spend', amount: -30000, balance: 270000, description: '来店促進キャンペーン（Google広告）', campaignId: 'cmp_demo_001', createdAt: '2026-03-01T09:00:00Z' },
+  { id: 'tx_003', paletteId: 'PAL-0001', type: 'spend', amount: -10000, balance: 260000, description: '来店促進キャンペーン（Instagram）', campaignId: 'cmp_demo_001', createdAt: '2026-03-05T09:00:00Z' },
+  { id: 'tx_004', paletteId: 'PAL-0001', type: 'spend', amount: -10000, balance: 250000, description: '友だち獲得キャンペーン（TikTok）', campaignId: 'cmp_demo_002', createdAt: '2026-03-10T09:00:00Z' },
+];

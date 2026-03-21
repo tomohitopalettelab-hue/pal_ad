@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import OpenAI from 'openai';
 import { parseSessionValue, MAIN_SESSION_COOKIE_NAME, isExpired } from '../../../lib/auth-session';
-import { getCampaignsByPaletteId, createCampaign } from '../_lib/pal-ad-store';
+import { getCampaignsByPaletteId, createCampaign, spendFromWallet } from '../_lib/pal-ad-store';
 import { generateMockCopies, calculateAllocation, type CampaignGoal, type ChannelId, type ChannelCopy } from '../_lib/mock-data';
 
 const GOAL_LABELS: Record<CampaignGoal, string> = {
@@ -110,6 +110,14 @@ export async function POST(req: Request) {
     const copies = await generateAICopies(goal, channels);
     const destination = body.destination || { type: 'url', url: '', label: '' };
 
+    // ウォレットから予算を引き落とし
+    const goalLabels: Record<string, string> = { visit: '来店促進', friends: '友だち獲得', recruit: 'スタッフ募集' };
+    const spendResult = await spendFromWallet(
+      session.customerId,
+      budget,
+      `${goalLabels[goal] || goal}キャンペーン 広告費`,
+    );
+
     const campaign = await createCampaign({
       paletteId: session.customerId,
       goal,
@@ -117,7 +125,7 @@ export async function POST(req: Request) {
       budget,
       periodDays,
       allocation,
-      status: 'draft',
+      status: spendResult.success ? 'reviewing' : 'draft',
       copies,
       mediaUrls: [],
       videoJobId: null,
@@ -125,7 +133,17 @@ export async function POST(req: Request) {
       performance: [],
     });
 
-    return NextResponse.json({ success: true, campaign });
+    // 引き落とし成功時はtransactionにcampaignIdを紐付け
+    if (spendResult.success && spendResult.transaction) {
+      spendResult.transaction.campaignId = campaign.id;
+    }
+
+    return NextResponse.json({
+      success: true,
+      campaign,
+      walletDeducted: spendResult.success,
+      walletError: spendResult.error || null,
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'エラーが発生しました';
     return NextResponse.json({ success: false, error: message }, { status: 500 });
