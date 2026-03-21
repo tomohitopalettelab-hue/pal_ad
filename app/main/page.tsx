@@ -218,15 +218,16 @@ export default function MainPage() {
     setSelectedChannels(prev => prev.includes(ch) ? prev.filter(c => c !== ch) : [...prev, ch]);
   };
 
+  const adSpend = useMemo(() => Math.round(budget * 0.8), [budget]);
   const allocation = useMemo(() => {
     if (!selectedChannels.length) return [];
     const base = Math.floor(100 / selectedChannels.length);
     const rem = 100 - base * selectedChannels.length;
     return selectedChannels.map((ch, i) => {
       const pct = base + (i < rem ? 1 : 0);
-      return { channelId: ch, budget: Math.round(budget * pct / 100), percentage: pct };
+      return { channelId: ch, budget: Math.round(adSpend * pct / 100), percentage: pct };
     });
-  }, [selectedChannels, budget]);
+  }, [selectedChannels, adSpend]);
 
   const handleCreateCampaign = useCallback(async () => {
     if (!selectedGoal || !selectedChannels.length) return;
@@ -586,6 +587,22 @@ export default function MainPage() {
                 <div className="flex justify-between text-[10px] text-slate-400 mt-1">
                   <span>¥10,000</span><span>¥1,000,000</span>
                 </div>
+
+                {/* 料金内訳 */}
+                <div className="mt-4 pt-3 border-t border-slate-100">
+                  <div className="flex justify-between text-xs text-slate-500 mb-1">
+                    <span>広告運用費（媒体実費）</span>
+                    <span>{formatYen(Math.round(budget * 0.8))}</span>
+                  </div>
+                  <div className="flex justify-between text-xs mb-1" style={{ color: ACCENT }}>
+                    <span className="font-bold">運用手数料（20%）</span>
+                    <span className="font-bold">{formatYen(Math.round(budget * 0.2))}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-black text-slate-800 mt-2 pt-2 border-t border-slate-100">
+                    <span>お支払い総額</span>
+                    <span>{formatYen(budget)}</span>
+                  </div>
+                </div>
               </div>
 
               <div className="bg-white rounded-xl p-5 border border-slate-200 mb-4">
@@ -606,7 +623,7 @@ export default function MainPage() {
               <div className="bg-white rounded-xl p-5 border border-slate-200 mb-6">
                 <p className="text-[11px] font-bold text-slate-500 mb-3">
                   <Sparkles size={12} className="inline mr-1" style={{ color: ACCENT }} />
-                  スマート配分プレビュー
+                  スマート配分プレビュー（広告実費 {formatYen(adSpend)}）
                 </p>
                 {allocation.map(a => (
                   <div key={a.channelId} className="flex items-center gap-2 mb-2">
