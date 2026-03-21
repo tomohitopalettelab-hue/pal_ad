@@ -275,7 +275,7 @@ export default function AdminPage() {
                           { key: 'googleConnected' as const, name: 'Google Ads', color: '#4285F4', oauthPath: '/api/oauth/google' },
                           { key: 'metaConnected' as const, name: 'Meta (Instagram/FB)', color: '#E4405F', oauthPath: '/api/oauth/instagram' },
                           { key: 'tiktokConnected' as const, name: 'TikTok Ads', color: '#000000', oauthPath: '/api/oauth/tiktok' },
-                          { key: 'xConnected' as const, name: 'X Ads', color: '#1DA1F2', oauthPath: '/api/oauth/x' },
+                          { key: 'xConnected' as const, name: 'X Ads', color: '#1DA1F2', oauthPath: '' },
                           { key: 'indeedConnected' as const, name: 'Indeed', color: '#2164F3', oauthPath: '/api/oauth/indeed' },
                           { key: 'lineConnected' as const, name: 'LINE Ads', color: '#06C755', oauthPath: '/api/oauth/line' },
                         ]).map(ch => {
