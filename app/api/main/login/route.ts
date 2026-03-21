@@ -30,13 +30,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'ログイン情報の取得に失敗しました。' }, { status: 500 });
     }
 
-    const canLogin = await canLoginPalAdByPaletteId(paletteId);
-    if (!canLogin) {
-      return NextResponse.json(
-        { success: false, error: 'Pal Ad のご契約が必要です。' },
-        { status: 403 },
-      );
-    }
+    // Phase 1: プランチェックをスキップ（pal_dbに pal_ad プランが未登録のため）
+    // Phase 2: 下記を有効化して pal_ad_lite / pal_ad_standard 契約を要求する
+    // const canLogin = await canLoginPalAdByPaletteId(paletteId);
+    // if (!canLogin) {
+    //   return NextResponse.json(
+    //     { success: false, error: 'Pal Ad のご契約が必要です。' },
+    //     { status: 403 },
+    //   );
+    // }
 
     const session: SessionPayload = {
       role: 'customer',
