@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { parseSessionValue, MAIN_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME, isExpired } from '../../../lib/auth-session';
-import { getSettingsByPaletteId, getTransactionsByPaletteId, chargeWallet, spendFromWallet } from '../_lib/pal-ad-store';
+import { getWalletBalance, getTransactionsDb, chargeWalletDb, spendFromWalletDb } from '../_lib/pal-ad-wallet-db';
 
 // GET /api/wallet — 残高と取引履歴を取得
 export async function GET(req: Request) {
@@ -20,20 +20,15 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, error: 'paletteId が必要です' }, { status: 400 });
     }
 
-    const settings = await getSettingsByPaletteId(paletteId);
-    const transactions = await getTransactionsByPaletteId(paletteId, 50);
+    const balance = await getWalletBalance(paletteId);
+    const transactions = await getTransactionsDb(paletteId, 50);
 
-    // 集計
     const totalCharged = transactions.filter(t => t.type === 'charge').reduce((s, t) => s + t.amount, 0);
     const totalSpent = transactions.filter(t => t.type === 'spend').reduce((s, t) => s + Math.abs(t.amount), 0);
 
     return NextResponse.json({
       success: true,
-      wallet: {
-        balance: settings?.walletBalance || 0,
-        totalCharged,
-        totalSpent,
-      },
+      wallet: { balance, totalCharged, totalSpent },
       transactions,
     });
   } catch (error: unknown) {
@@ -59,24 +54,23 @@ export async function POST(req: Request) {
     const amount = Number(body.amount);
     const description = body.description || '';
     const campaignId = body.campaignId;
+    const squarePaymentId = body.squarePaymentId;
 
     if (!paletteId || !amount || amount <= 0) {
       return NextResponse.json({ success: false, error: 'paletteId と正の金額が必要です' }, { status: 400 });
     }
 
     if (action === 'charge') {
-      const tx = await chargeWallet(paletteId, amount, description);
-      const settings = await getSettingsByPaletteId(paletteId);
-      return NextResponse.json({ success: true, transaction: tx, balance: settings?.walletBalance || 0 });
+      const result = await chargeWalletDb(paletteId, amount, description, squarePaymentId);
+      return NextResponse.json({ success: true, balance: result.balance, transactionId: result.transactionId });
     }
 
     if (action === 'spend') {
-      const result = await spendFromWallet(paletteId, amount, description, campaignId);
+      const result = await spendFromWalletDb(paletteId, amount, description, campaignId);
       if (!result.success) {
         return NextResponse.json({ success: false, error: result.error }, { status: 400 });
       }
-      const settings = await getSettingsByPaletteId(paletteId);
-      return NextResponse.json({ success: true, transaction: result.transaction, balance: settings?.walletBalance || 0 });
+      return NextResponse.json({ success: true, balance: result.balance, transactionId: result.transactionId });
     }
 
     return NextResponse.json({ success: false, error: 'action は "charge" または "spend" を指定してください' }, { status: 400 });

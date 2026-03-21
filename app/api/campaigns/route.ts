@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import OpenAI from 'openai';
 import { parseSessionValue, MAIN_SESSION_COOKIE_NAME, isExpired } from '../../../lib/auth-session';
-import { getCampaignsByPaletteId, createCampaign, spendFromWallet } from '../_lib/pal-ad-store';
+import { getCampaignsByPaletteId, createCampaign } from '../_lib/pal-ad-store';
+import { spendFromWalletDb } from '../_lib/pal-ad-wallet-db';
 import { generateMockCopies, calculateAllocation, type CampaignGoal, type ChannelId, type ChannelCopy } from '../_lib/mock-data';
 
 const GOAL_LABELS: Record<CampaignGoal, string> = {
@@ -113,7 +114,7 @@ export async function POST(req: Request) {
 
     // ウォレットから予算を引き落とし
     const goalLabels: Record<string, string> = { visit: '来店促進', friends: '友だち獲得', recruit: 'スタッフ募集' };
-    const spendResult = await spendFromWallet(
+    const spendResult = await spendFromWalletDb(
       session.customerId,
       budget,
       `${goalLabels[goal] || goal}キャンペーン 広告費`,
@@ -134,11 +135,6 @@ export async function POST(req: Request) {
       targeting,
       performance: [],
     });
-
-    // 引き落とし成功時はtransactionにcampaignIdを紐付け
-    if (spendResult.success && spendResult.transaction) {
-      spendResult.transaction.campaignId = campaign.id;
-    }
 
     return NextResponse.json({
       success: true,
