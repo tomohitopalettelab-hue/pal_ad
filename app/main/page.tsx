@@ -5,7 +5,7 @@ import {
   Store, Users, UserPlus, MapPin, Play, MessageCircle, Youtube, Briefcase, MessageSquare,
   ArrowRight, ArrowLeft, Check, Plus, Eye, Pause, BarChart3, TrendingUp, Phone, UserCheck,
   Wallet, Zap, LogOut, ChevronDown, ChevronUp, Sparkles, AlertCircle, Instagram,
-  ExternalLink, Layout, Link, Settings2,
+  ExternalLink, Layout, Link, Settings2, Video, Trash2, Film,
 } from 'lucide-react';
 
 // ===== 定数 =====
@@ -142,6 +142,13 @@ export default function MainPage() {
   const [destLabel, setDestLabel] = useState('');
   const [channelFormats, setChannelFormats] = useState<Record<string, string[]>>({});
 
+  // 動画素材
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+  const [mediaUrlInput, setMediaUrlInput] = useState('');
+  const [mediaSource, setMediaSource] = useState<'url' | 'pal_video'>('url');
+  const [palVideoLoading, setPalVideoLoading] = useState(false);
+  const [palVideoStatus, setPalVideoStatus] = useState('');
+
   // ターゲティング
   const [targetAddress, setTargetAddress] = useState('');
   const [targetRadius, setTargetRadius] = useState(5);
@@ -198,6 +205,44 @@ export default function MainPage() {
     setCampaigns([]);
   };
 
+  // サークルマップ初期化
+  useEffect(() => {
+    if (!targetAddress || view !== 'wizard' || wizardStep !== 3) return;
+    const el = document.getElementById('circle-map') as HTMLDivElement | null;
+    if (!el) return;
+
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const initMap = () => {
+      const g = (window as any).google;
+      if (!g?.maps) return;
+      const geocoder = new g.maps.Geocoder();
+      geocoder.geocode({ address: targetAddress }, (results: any, status: string) => {
+        if (status !== 'OK' || !results?.[0]) return;
+        const loc = results[0].geometry.location;
+        const map = new g.maps.Map(el, {
+          center: loc, zoom: targetRadius <= 3 ? 14 : targetRadius <= 10 ? 12 : 10,
+          disableDefaultUI: true, zoomControl: true,
+        });
+        new g.maps.Circle({
+          map, center: loc, radius: targetRadius * 1000,
+          fillColor: '#F39800', fillOpacity: 0.15,
+          strokeColor: '#F39800', strokeWeight: 2, strokeOpacity: 0.6,
+        });
+      });
+    };
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+
+    if ((window as any).google) {
+      initMap();
+    } else if (!document.getElementById('gmaps-script')) {
+      const script = document.createElement('script');
+      script.id = 'gmaps-script';
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''}`;
+      script.onload = initMap;
+      document.head.appendChild(script);
+    }
+  }, [targetAddress, targetRadius, view, wizardStep]);
+
   const startWizard = () => {
     setWizardStep(1);
     setSelectedGoal(null);
@@ -208,6 +253,9 @@ export default function MainPage() {
     setDestUrl('');
     setDestLabel('');
     setChannelFormats({});
+    setMediaUrls([]);
+    setMediaUrlInput('');
+    setMediaSource('url');
     setTargetAddress('');
     setTargetRadius(5);
     setTargetPersonas([]);
@@ -220,13 +268,29 @@ export default function MainPage() {
 
   const allocation = useMemo(() => {
     if (!selectedChannels.length) return [];
-    const base = Math.floor(100 / selectedChannels.length);
-    const rem = 100 - base * selectedChannels.length;
-    return selectedChannels.map((ch, i) => {
-      const pct = base + (i < rem ? 1 : 0);
-      return { channelId: ch, budget: Math.round(budget * pct / 100), percentage: pct };
-    });
-  }, [selectedChannels, budget]);
+
+    // 目的別の媒体重み付け
+    const GOAL_WEIGHTS: Record<CampaignGoal, Partial<Record<ChannelId, number>>> = {
+      visit: { google: 35, instagram: 20, line: 20, youtube: 10, tiktok: 5, x: 5, indeed: 5 },
+      friends: { line: 30, instagram: 25, tiktok: 20, youtube: 10, google: 5, x: 5, indeed: 5 },
+      recruit: { indeed: 35, instagram: 20, x: 15, google: 10, line: 10, tiktok: 5, youtube: 5 },
+    };
+
+    const weights = selectedGoal ? GOAL_WEIGHTS[selectedGoal] : {};
+    const rawWeights = selectedChannels.map(ch => weights[ch] || 10);
+    const totalWeight = rawWeights.reduce((s, w) => s + w, 0);
+    const percentages = rawWeights.map(w => Math.round(w / totalWeight * 100));
+
+    // 合計100%に調整
+    const diff = 100 - percentages.reduce((s, p) => s + p, 0);
+    if (diff !== 0) percentages[0] += diff;
+
+    return selectedChannels.map((ch, i) => ({
+      channelId: ch,
+      budget: Math.round(budget * percentages[i] / 100),
+      percentage: percentages[i],
+    }));
+  }, [selectedChannels, budget, selectedGoal]);
 
   const handleCreateCampaign = useCallback(async () => {
     if (!selectedGoal || !selectedChannels.length) return;
@@ -238,6 +302,7 @@ export default function MainPage() {
           destination: { type: destType, url: destUrl || undefined, label: destLabel || DEST_PRESETS.find(d => d.type === destType)?.label || '' },
           targeting: targetAddress ? { address: targetAddress, radiusKm: targetRadius, persona: targetPersonas.length ? targetPersonas : undefined } : undefined,
           channelFormats,
+          mediaUrls,
         }),
       });
       const data = await res.json();
@@ -251,7 +316,7 @@ export default function MainPage() {
         setView('preview');
       }
     } catch { /* エラーハンドリングは後で */ }
-  }, [selectedGoal, selectedChannels, budget, periodDays]);
+  }, [selectedGoal, selectedChannels, budget, periodDays, mediaUrls]);
 
   // サマリー
   const summaryStats = useMemo(() => {
@@ -668,6 +733,118 @@ export default function MainPage() {
                 )}
               </div>
 
+              {/* 動画素材 */}
+              {selectedChannels.some(ch => ['youtube', 'tiktok', 'instagram'].includes(ch)) && (
+                <div className="bg-white rounded-xl p-5 border border-slate-200 mb-6">
+                  <p className="text-[11px] font-bold text-slate-500 mb-3">
+                    <Film size={12} className="inline mr-1" style={{ color: ACCENT }} />
+                    動画素材
+                    <span className="text-[9px] text-slate-400 ml-1">（YouTube・TikTok・Instagram動画広告で使用）</span>
+                  </p>
+
+                  {/* ソース切り替え */}
+                  <div className="flex gap-2 mb-3">
+                    <button onClick={() => setMediaSource('url')}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                        mediaSource === 'url' ? 'text-white' : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
+                      }`} style={mediaSource === 'url' ? { backgroundColor: ACCENT } : {}}>
+                      <Video size={12} className="inline mr-1" /> URL指定
+                    </button>
+                    <button onClick={() => setMediaSource('pal_video')}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                        mediaSource === 'pal_video' ? 'text-white' : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
+                      }`} style={mediaSource === 'pal_video' ? { backgroundColor: ACCENT } : {}}>
+                      <Play size={12} className="inline mr-1" /> Pal-Video連携
+                    </button>
+                  </div>
+
+                  {/* URL入力 */}
+                  {mediaSource === 'url' && (
+                    <div>
+                      <div className="flex gap-2 mb-2">
+                        <input value={mediaUrlInput} onChange={e => setMediaUrlInput(e.target.value)}
+                          placeholder="YouTube URL または 動画URL を入力"
+                          className="flex-1 p-2.5 border border-slate-300 rounded-lg text-sm outline-none"
+                          onFocus={e => e.target.style.boxShadow = `0 0 0 2px ${ACCENT}40`}
+                          onBlur={e => e.target.style.boxShadow = ''}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && mediaUrlInput.trim()) {
+                              setMediaUrls(prev => [...prev, mediaUrlInput.trim()]);
+                              setMediaUrlInput('');
+                            }
+                          }} />
+                        <button onClick={() => {
+                          if (mediaUrlInput.trim()) {
+                            setMediaUrls(prev => [...prev, mediaUrlInput.trim()]);
+                            setMediaUrlInput('');
+                          }
+                        }}
+                          className="px-3 py-2 rounded-lg text-white text-xs font-bold"
+                          style={{ backgroundColor: ACCENT }}>
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                      <p className="text-[9px] text-slate-400 mb-2">YouTube・TikTok・Instagram等の動画URLを追加してください</p>
+                    </div>
+                  )}
+
+                  {/* Pal-Video連携 */}
+                  {mediaSource === 'pal_video' && (
+                    <div className="p-4 rounded-lg bg-slate-50 text-center mb-2">
+                      <Play size={24} className="mx-auto mb-2 text-slate-400" />
+                      <p className="text-[11px] text-slate-500 mb-1">Pal-Videoで作成した動画を選択</p>
+                      <p className="text-[9px] text-slate-400">Pal-Videoサービスと連携して動画を取得します</p>
+                      {palVideoStatus && (
+                        <p className={`text-[10px] mt-1 ${palVideoStatus.includes('見つかりません') ? 'text-amber-500' : 'text-green-600'}`}>
+                          {palVideoStatus}
+                        </p>
+                      )}
+                      <button className="mt-2 px-4 py-1.5 rounded-lg text-xs font-bold text-white"
+                        style={{ backgroundColor: ACCENT }}
+                        disabled={palVideoLoading}
+                        onClick={async () => {
+                          setPalVideoLoading(true);
+                          setPalVideoStatus('');
+                          try {
+                            const res = await fetch('/api/media?type=video');
+                            const data = await res.json();
+                            if (data?.media?.length) {
+                              const urls = data.media.map((m: { url: string }) => m.url);
+                              setMediaUrls(prev => [...prev, ...urls]);
+                              setPalVideoStatus(`${urls.length}件の動画を取得しました`);
+                            } else {
+                              setPalVideoStatus('動画が見つかりません。Pal-Videoで動画を作成してください。');
+                            }
+                          } catch {
+                            setPalVideoStatus('動画が見つかりません。Pal-Videoで動画を作成してください。');
+                          } finally {
+                            setPalVideoLoading(false);
+                          }
+                        }}>
+                        {palVideoLoading ? '取得中...' : '動画を取得'}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 追加済み動画一覧 */}
+                  {mediaUrls.length > 0 && (
+                    <div className="space-y-1.5 mt-2">
+                      <p className="text-[10px] font-bold text-slate-400">{mediaUrls.length}件の動画素材</p>
+                      {mediaUrls.map((url, i) => (
+                        <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200">
+                          <Video size={14} className="text-slate-400 shrink-0" />
+                          <span className="text-[11px] text-slate-600 flex-1 truncate">{url}</span>
+                          <button onClick={() => setMediaUrls(prev => prev.filter((_, j) => j !== i))}
+                            className="text-slate-300 hover:text-red-500 transition-colors">
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* サークルターゲティング */}
               <div className="bg-white rounded-xl p-5 border border-slate-200 mb-6">
                 <p className="text-[11px] font-bold text-slate-500 mb-3">
@@ -684,14 +861,13 @@ export default function MainPage() {
                       onBlur={e => e.target.style.boxShadow = ''} />
                   </div>
 
-                  {/* 地図表示 */}
+                  {/* 地図表示（サークル付き） */}
                   {targetAddress && (
-                    <div className="rounded-lg overflow-hidden border border-slate-200">
-                      <iframe
-                        width="100%" height="200" style={{ border: 0 }}
-                        loading="lazy" referrerPolicy="no-referrer-when-downgrade"
-                        src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''}&q=${encodeURIComponent(targetAddress)}&zoom=13`}
-                      />
+                    <div className="rounded-lg overflow-hidden border border-slate-200 relative">
+                      <div id="circle-map" style={{ width: '100%', height: '250px' }} />
+                      <div className="absolute top-2 right-2 bg-white/90 px-2 py-1 rounded text-[10px] font-bold text-slate-600 shadow-sm">
+                        半径 {targetRadius}km
+                      </div>
                     </div>
                   )}
 

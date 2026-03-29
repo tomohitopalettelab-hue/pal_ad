@@ -157,6 +157,139 @@ export const createGoogleAdsCampaign = async (
   }
 };
 
+// ===== YouTube動画キャンペーン作成フロー =====
+
+export type GoogleAdsVideoCampaignInput = {
+  name: string;
+  budgetAmountMicros: number;
+  startDate: string; // YYYY-MM-DD
+  endDate: string;
+  videoUrl: string; // YouTube動画URL
+  headline: string;
+  description: string;
+  finalUrl: string;
+  companionBannerUrl?: string;
+  targetLocationIds?: string[];
+};
+
+// YouTube URLからVideo IDを抽出
+const extractYouTubeVideoId = (url: string): string | null => {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+};
+
+export const createGoogleAdsVideoCampaign = async (
+  accessToken: string,
+  customerId: string,
+  input: GoogleAdsVideoCampaignInput,
+): Promise<{ success: boolean; campaignId?: string; error?: string }> => {
+  const config = getConfig(accessToken, customerId);
+
+  try {
+    // 1. キャンペーン予算を作成
+    const budgetResult = await apiCall(config, 'campaignBudgets:mutate', {
+      operations: [{
+        create: {
+          name: `${input.name} Budget`,
+          amountMicros: String(input.budgetAmountMicros),
+          deliveryMethod: 'STANDARD',
+        },
+      }],
+    });
+
+    if (budgetResult.error) {
+      return { success: false, error: budgetResult.error?.message || '予算の作成に失敗' };
+    }
+    const budgetResourceName = budgetResult.results?.[0]?.resourceName;
+    if (!budgetResourceName) {
+      return { success: false, error: '予算リソース名が取得できません' };
+    }
+
+    // 2. VIDEOキャンペーンを作成
+    const campaignResult = await apiCall(config, 'campaigns:mutate', {
+      operations: [{
+        create: {
+          name: input.name,
+          advertisingChannelType: 'VIDEO',
+          status: 'PAUSED',
+          campaignBudget: budgetResourceName,
+          startDate: input.startDate.replace(/-/g, ''),
+          endDate: input.endDate.replace(/-/g, ''),
+          videoBrandSafetySuitability: 'EXPANDED_INVENTORY',
+        },
+      }],
+    });
+
+    if (campaignResult.error) {
+      return { success: false, error: campaignResult.error?.message || 'VIDEOキャンペーンの作成に失敗' };
+    }
+    const campaignResourceName = campaignResult.results?.[0]?.resourceName;
+    if (!campaignResourceName) {
+      return { success: false, error: 'キャンペーンリソース名が取得できません' };
+    }
+
+    // 3. 動画広告グループを作成
+    const adGroupResult = await apiCall(config, 'adGroups:mutate', {
+      operations: [{
+        create: {
+          name: `${input.name} - Video Ad Group`,
+          campaign: campaignResourceName,
+          type: 'VIDEO_TRUE_VIEW_IN_STREAM',
+          status: 'ENABLED',
+          cpcBidMicros: '5000000', // ¥5 CPV
+        },
+      }],
+    });
+
+    if (adGroupResult.error) {
+      return { success: false, error: adGroupResult.error?.message || '動画広告グループの作成に失敗' };
+    }
+    const adGroupResourceName = adGroupResult.results?.[0]?.resourceName;
+
+    // 4. YouTube動画アセットを作成し、動画広告を入稿
+    if (adGroupResourceName) {
+      const videoId = extractYouTubeVideoId(input.videoUrl);
+      if (!videoId) {
+        return { success: false, error: 'YouTube動画URLが無効です' };
+      }
+
+      await apiCall(config, 'adGroupAds:mutate', {
+        operations: [{
+          create: {
+            adGroup: adGroupResourceName,
+            status: 'ENABLED',
+            ad: {
+              videoAd: {
+                video: {
+                  youtubeVideoId: videoId,
+                },
+                inStream: {
+                  actionButtonLabel: input.headline.slice(0, 10),
+                  actionHeadline: input.headline.slice(0, 15),
+                },
+              },
+              finalUrls: [input.finalUrl],
+              displayUrl: input.finalUrl.replace(/^https?:\/\//, '').slice(0, 35),
+            },
+          },
+        }],
+      });
+    }
+
+    const campaignId = campaignResourceName.split('/').pop() || '';
+    return { success: true, campaignId };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : 'YouTube広告APIエラー' };
+  }
+};
+
 // ===== キャンペーンを有効化 =====
 export const enableGoogleAdsCampaign = async (
   accessToken: string,

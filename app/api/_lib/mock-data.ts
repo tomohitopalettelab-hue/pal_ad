@@ -271,18 +271,28 @@ export const generateMockCopies = (goal: CampaignGoal, channels: ChannelId[]): C
 
 // ===== モック予算配分 =====
 
-export const calculateAllocation = (channels: ChannelId[], totalBudget: number): ChannelAllocation[] => {
+export const calculateAllocation = (channels: ChannelId[], totalBudget: number, goal?: CampaignGoal): ChannelAllocation[] => {
   if (channels.length === 0) return [];
-  const basePercent = Math.floor(100 / channels.length);
-  const remainder = 100 - basePercent * channels.length;
-  return channels.map((ch, i) => {
-    const percentage = basePercent + (i < remainder ? 1 : 0);
-    return {
-      channelId: ch,
-      budget: Math.round(totalBudget * percentage / 100),
-      percentage,
-    };
-  });
+
+  const GOAL_WEIGHTS: Record<CampaignGoal, Partial<Record<ChannelId, number>>> = {
+    visit: { google: 35, instagram: 20, line: 20, youtube: 10, tiktok: 5, x: 5, indeed: 5 },
+    friends: { line: 30, instagram: 25, tiktok: 20, youtube: 10, google: 5, x: 5, indeed: 5 },
+    recruit: { indeed: 35, instagram: 20, x: 15, google: 10, line: 10, tiktok: 5, youtube: 5 },
+  };
+
+  const weights = goal ? GOAL_WEIGHTS[goal] : {};
+  const rawWeights = channels.map(ch => weights[ch] || 10);
+  const totalWeight = rawWeights.reduce((s, w) => s + w, 0);
+  const percentages = rawWeights.map(w => Math.round(w / totalWeight * 100));
+
+  const diff = 100 - percentages.reduce((s, p) => s + p, 0);
+  if (diff !== 0) percentages[0] += diff;
+
+  return channels.map((ch, i) => ({
+    channelId: ch,
+    budget: Math.round(totalBudget * percentages[i] / 100),
+    percentage: percentages[i],
+  }));
 };
 
 // ===== モックパフォーマンスデータ =====

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { parseSessionValue, MAIN_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME, isExpired } from '../../../lib/auth-session';
 import { getCampaignById, updateCampaign, getSettingsByPaletteId } from '../_lib/pal-ad-store';
-import { createGoogleAdsCampaign, type GoogleAdsCampaignInput } from '../_lib/google-ads-client';
+import { createGoogleAdsCampaign, type GoogleAdsCampaignInput, createGoogleAdsVideoCampaign, type GoogleAdsVideoCampaignInput } from '../_lib/google-ads-client';
 import { createMetaAdsCampaign, type MetaAdsCampaignInput } from '../_lib/meta-ads-client';
 
 const GOAL_OBJECTIVES: Record<string, string> = {
@@ -107,6 +107,40 @@ export async function POST(req: Request) {
         };
       } else {
         results.instagram = { success: false, error: 'Meta Ads未接続です。管理画面から接続してください。' };
+      }
+    }
+
+    // ===== YouTube広告 =====
+    if (campaign.channels.includes('youtube')) {
+      const googleToken = (settings as Record<string, unknown>)?.googleAccessToken as string;
+      const googleCustomerId = (settings as Record<string, unknown>)?.googleAdCustomerId as string;
+
+      if (googleToken && googleCustomerId) {
+        const videoUrl = campaign.mediaUrls?.[0] || '';
+        if (!videoUrl) {
+          results.youtube = { success: false, error: 'YouTube動画URLが設定されていません。動画URLを指定してください。' };
+        } else {
+          const ytCopy = campaign.copies.find(c => c.channelId === 'youtube');
+          const input: GoogleAdsVideoCampaignInput = {
+            name: `Pal Ad YouTube - ${campaign.goal} - ${campaign.id}`,
+            budgetAmountMicros: dailyBudget * 1000000,
+            startDate,
+            endDate,
+            videoUrl,
+            headline: ytCopy?.headline || '店舗広告',
+            description: ytCopy?.body || '地域密着の広告配信',
+            finalUrl,
+          };
+
+          const ytResult = await createGoogleAdsVideoCampaign(googleToken, googleCustomerId, input);
+          results.youtube = {
+            success: ytResult.success,
+            platformCampaignId: ytResult.campaignId,
+            error: ytResult.error,
+          };
+        }
+      } else {
+        results.youtube = { success: false, error: 'Google Ads未接続です。YouTube広告はGoogle Ads経由で配信されます。' };
       }
     }
 

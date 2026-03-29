@@ -107,10 +107,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: '目的と媒体を指定してください' }, { status: 400 });
     }
 
-    const allocation = calculateAllocation(channels, budget);
+    const allocation = calculateAllocation(channels, budget, goal);
     const copies = await generateAICopies(goal, channels);
     const destination = body.destination || { type: 'url', url: '', label: '' };
     const targeting = body.targeting || undefined;
+    const mediaUrls = Array.isArray(body.mediaUrls) ? body.mediaUrls.filter((u: unknown) => typeof u === 'string' && u) : [];
 
     // ウォレットから予算を引き落とし
     const goalLabels: Record<string, string> = { visit: '来店促進', friends: '友だち獲得', recruit: 'スタッフ募集' };
@@ -129,7 +130,7 @@ export async function POST(req: Request) {
       allocation,
       status: spendResult.success ? 'reviewing' : 'draft',
       copies,
-      mediaUrls: [],
+      mediaUrls,
       videoJobId: null,
       destination,
       targeting,
